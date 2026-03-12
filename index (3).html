@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GUIZY — Fruit Juice Cans</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#f7f5f0;
+  --white:#ffffff;
+  --ink:#1a1a1a;
+  --card:rgba(0,0,0,0.04);
+}
+html{scroll-behavior:auto;font-size:16px;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'DM Sans',sans-serif;
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* CURSOR */
+#cursor{
+  position:fixed;width:12px;height:12px;
+  background:var(--ink);border-radius:50%;
+  pointer-events:none;z-index:9999;
+  transform:translate(-50%,-50%);
+  transition:transform .15s,width .3s,height .3s,background .3s,opacity .3s;
+}
+#cursor-ring{
+  position:fixed;width:42px;height:42px;
+  border:1px solid rgba(26,26,26,0.3);border-radius:50%;
+  pointer-events:none;z-index:9998;
+  transform:translate(-50%,-50%);
+  transition:width .3s,height .3s;
+}
+body.hovering #cursor{transform:translate(-50%,-50%) scale(3);}
+body.hovering #cursor-ring{width:60px;height:60px;}
+
+/* CANVAS */
+#canvas-wrap{
+  position:fixed;inset:0;z-index:1;
+  pointer-events:none;
+}
+#c{display:block;width:100%!important;height:100%!important;}
+
+/* SCROLL CONTAINER */
+#scroll-body{
+  position:relative;z-index:2;
+  height:700vh;
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;
+  z-index:100;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.4rem 3rem;
+  transition:background .5s,backdrop-filter .5s;
+}
+nav.scrolled{
+  backdrop-filter:blur(24px);
+  background:rgba(247,245,240,0.92);
+  border-bottom:1px solid rgba(0,0,0,0.08);
+}
+.logo{
+  font-family:'Syne',sans-serif;
+  font-size:1.6rem;font-weight:800;letter-spacing:.08em;
+  color:var(--ink);text-decoration:none;
+  transition:color .3s;
+}
+.nav-r{display:flex;align-items:center;gap:2.5rem;}
+.nav-r a{
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(26,26,26,.45);text-decoration:none;
+  transition:color .2s;
+}
+.nav-r a:hover{color:var(--ink);}
+.nav-btn{
+  font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--ink);color:#fff;
+  border:none;padding:.5rem 1.4rem;border-radius:100px;cursor:none;
+  transition:background .2s,transform .15s;font-family:'DM Sans',sans-serif;
+  font-weight:500;
+}
+.nav-btn:hover{background:#333;}
+
+/* PROGRESS */
+#prog{
+  position:fixed;top:0;left:0;
+  height:2px;width:0%;
+  z-index:200;
+  transition:width .08s linear, background .5s;
+}
+
+/* FLAVOR SELECTOR */
+#flavor-bar{
+  position:fixed;
+  bottom:2.5rem;left:50%;transform:translateX(-50%);
+  z-index:50;
+  display:flex;gap:1rem;align-items:center;
+  background:rgba(255,255,255,0.85);
+  border:1px solid rgba(0,0,0,0.10);
+  backdrop-filter:blur(20px);
+  border-radius:100px;
+  padding:.5rem .75rem;
+  box-shadow:0 4px 24px rgba(0,0,0,0.1);
+  transition:opacity .5s;
+}
+.f-btn{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.45rem 1.1rem;border-radius:100px;
+  border:none;cursor:none;
+  font-family:'DM Sans',sans-serif;
+  font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+  transition:background .3s,color .3s,transform .2s;
+  background:transparent;color:rgba(26,26,26,.45);
+  position:relative;
+  overflow:hidden;
+}
+.f-btn .dot{
+  width:8px;height:8px;border-radius:50%;
+  flex-shrink:0;
+  transition:transform .3s;
+}
+.f-btn.active{color:var(--ink);font-weight:600;}
+.f-btn.active .dot{transform:scale(1.3);}
+.f-btn:hover{color:rgba(26,26,26,.85);}
+
+/* SCROLL INDICATOR */
+#scroll-ind{
+  position:fixed;right:2.5rem;top:50%;transform:translateY(-50%);
+  z-index:50;
+  display:flex;flex-direction:column;align-items:center;gap:.4rem;
+  opacity:.4;transition:opacity .5s;
+}
+.si-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(26,26,26,.2);
+  transition:background .3s, transform .3s;
+}
+.si-dot.active{background:var(--ink);transform:scale(1.4);}
+
+/* SECTION TEXT LAYERS */
+.layer{
+  position:absolute;
+  width:100%;height:100vh;
+  display:flex;align-items:center;
+  pointer-events:none;
+}
+.layer.center{justify-content:center;text-align:center;flex-direction:column;}
+.layer.left{justify-content:flex-start;padding-left:8vw;}
+.layer.right{justify-content:flex-end;padding-right:8vw;}
+
+#l0{top:0vh;}
+#l1{top:100vh;}
+#l2{top:200vh;}
+#l3{top:300vh;}
+#l4{top:400vh;}
+#l5{top:500vh;}
+#l6{top:600vh;}
+
+.txt-block{max-width:460px;opacity:0;transform:translateY(30px);}
+.txt-block.center-txt{max-width:640px;text-align:center;}
+
+.eyebrow{
+  font-size:.62rem;letter-spacing:.32em;text-transform:uppercase;
+  margin-bottom:1rem;
+  display:flex;align-items:center;gap:.6rem;
+  transition:color .5s;
+}
+.eyebrow::before{
+  content:'';display:block;
+  width:20px;height:1px;background:currentColor;
+}
+
+h1{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(3.2rem,6.5vw,5.8rem);
+  line-height:.95;
+  letter-spacing:-.03em;
+  font-weight:800;
+  color:var(--ink);
+}
+h1 em{font-style:italic;font-weight:400;transition:color .5s;}
+h2{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(2.2rem,4.2vw,4rem);
+  font-weight:700;line-height:1.0;
+  letter-spacing:-.025em;
+  color:var(--ink);
+}
+h2 em{font-style:italic;font-weight:400;transition:color .5s;}
+.body-text{
+  margin-top:1.2rem;
+  font-size:.9rem;line-height:1.9;
+  color:rgba(26,26,26,.5);
+  font-weight:300;max-width:380px;
+}
+.center-txt .body-text{margin-left:auto;margin-right:auto;}
+
+.stat-row{
+  display:flex;gap:2.5rem;margin-top:2rem;
+}
+.stat-n{
+  font-family:'Syne',sans-serif;
+  font-size:3rem;font-weight:800;
+  line-height:1;
+  transition:color .5s;
+}
+.stat-l{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(26,26,26,.3);margin-top:.3rem;}
+
+.pill-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.4rem;}
+.pill{
+  font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid rgba(26,26,26,.12);
+  border-radius:100px;padding:.35rem .9rem;
+  color:rgba(26,26,26,.5);
+  transition:border-color .5s, color .5s;
+}
+.pill.accent{
+  color:var(--ink);
+  transition:background .5s, border-color .5s;
+}
+
+.cta-primary{
+  display:inline-flex;align-items:center;gap:.5rem;
+  margin-top:1.8rem;
+  font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+  color:#fff;
+  border:none;padding:.75rem 2rem;border-radius:100px;
+  cursor:none;pointer-events:all;
+  transition:transform .2s, background .5s;
+  font-family:'DM Sans',sans-serif;font-weight:500;
+}
+.cta-primary:hover{transform:scale(1.04);}
+.cta-secondary{
+  display:inline-flex;align-items:center;gap:.5rem;
+  margin-top:.8rem;margin-left:1rem;
+  font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+  background:transparent;color:rgba(26,26,26,.6);
+  border:1px solid rgba(26,26,26,.2);padding:.75rem 2rem;border-radius:100px;
+  cursor:none;pointer-events:all;
+  transition:border-color .25s,color .25s;
+  font-family:'DM Sans',sans-serif;font-weight:400;
+}
+.cta-secondary:hover{border-color:rgba(26,26,26,.5);color:var(--ink);}
+
+/* DESCRIPTION PANEL */
+#desc-panel{
+  position:fixed;right:3rem;top:50%;
+  transform:translateY(-50%);
+  z-index:50;
+  width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .5s;
+}
+#desc-panel.visible{opacity:1;}
+.desc-card{
+  background:rgba(255,255,255,0.88);
+  border:1px solid rgba(0,0,0,0.08);
+  backdrop-filter:blur(20px);
+  border-radius:20px;
+  padding:1.8rem;
+  box-shadow:0 8px 32px rgba(0,0,0,0.08);
+}
+.desc-flavor-name{
+  font-family:'Syne',sans-serif;
+  font-size:1.8rem;font-weight:800;
+  margin-bottom:.4rem;
+  transition:color .5s;
+}
+.desc-tagline{
+  font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(26,26,26,.4);
+  margin-bottom:1.2rem;
+}
+.desc-text{
+  font-size:.82rem;line-height:1.8;
+  color:rgba(26,26,26,.55);
+  margin-bottom:1.4rem;
+}
+.desc-nutrients{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:.8rem;
+}
+.desc-nut{
+  background:rgba(0,0,0,0.04);
+  border-radius:10px;padding:.6rem .8rem;
+}
+.desc-nut-val{
+  font-family:'Syne',sans-serif;
+  font-size:1.1rem;font-weight:700;
+  transition:color .5s;
+}
+.desc-nut-lbl{
+  font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(26,26,26,.3);
+  margin-top:.1rem;
+}
+
+/* SPLASH CANVAS */
+#splash-canvas{
+  position:fixed;inset:0;z-index:60;
+  pointer-events:none;
+}
+
+/* EXPLOSION LABELS */
+#exp-labels{
+  position:fixed;inset:0;z-index:3;
+  pointer-events:none;
+  opacity:0;
+}
+.exp-label{
+  position:absolute;
+  font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;
+  color:rgba(26,26,26,.55);
+  display:flex;align-items:center;gap:.5rem;
+  white-space:nowrap;
+}
+.exp-label::after{content:'';display:block;width:28px;height:1px;background:rgba(26,26,26,.25);}
+.exp-label.r::after{display:none;}
+.exp-label.r::before{content:'';display:block;width:28px;height:1px;background:rgba(26,26,26,.25);}
+
+/* BG GLOW */
+#bg-glow{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  transition:background 1s;
+  opacity:0.6;
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div id="prog"></div>
+<div id="bg-glow"></div>
+
+<canvas id="splash-canvas"></canvas>
+<div id="canvas-wrap"><canvas id="c"></canvas></div>
+
+<!-- EXPLOSION LABELS -->
+<div id="exp-labels">
+  <div class="exp-label" style="top:22%;left:10%;">Recyclable Aluminium</div>
+  <div class="exp-label" style="top:15%;right:12%;">Pull-Tab Mechanism</div>
+  <div class="exp-label r" style="top:45%;right:10%;">Fruit Blend Label</div>
+  <div class="exp-label" style="bottom:28%;left:10%;">Sealed Base</div>
+  <div class="exp-label r" style="bottom:20%;right:13%;">Textured Grip Band</div>
+</div>
+
+<nav id="nav">
+  <a class="logo" href="#">GUIZY</a>
+  <div class="nav-r">
+    <a href="#">Flavours</a>
+    <a href="#">Ingredients</a>
+    <a href="#">Shop</a>
+    <button class="nav-btn">Order Now</button>
+  </div>
+</nav>
+
+<!-- FLAVOR SELECTOR -->
+<div id="flavor-bar">
+  <button class="f-btn active" data-flavor="0" onclick="selectFlavor(0,true)">
+    <span class="dot" style="background:#ff00cc;"></span>Berry
+  </button>
+  <button class="f-btn" data-flavor="1" onclick="selectFlavor(1,true)">
+    <span class="dot" style="background:#ff0022;"></span>Strawberry
+  </button>
+  <button class="f-btn" data-flavor="2" onclick="selectFlavor(2,true)">
+    <span class="dot" style="background:#00cc33;"></span>Apple
+  </button>
+  <button class="f-btn" data-flavor="3" onclick="selectFlavor(3,true)">
+    <span class="dot" style="background:#9933ff;"></span>Grape
+  </button>
+</div>
+
+<!-- DOT NAV -->
+<div id="scroll-ind">
+  <div class="si-dot active"></div>
+  <div class="si-dot"></div>
+  <div class="si-dot"></div>
+  <div class="si-dot"></div>
+  <div class="si-dot"></div>
+  <div class="si-dot"></div>
+  <div class="si-dot"></div>
+</div>
+
+<!-- DESCRIPTION PANEL -->
+<div id="desc-panel">
+  <div class="desc-card">
+    <div class="desc-flavor-name" id="dp-name">Berry</div>
+    <div class="desc-tagline" id="dp-tag">Wild Forest Blend</div>
+    <div class="desc-text" id="dp-text">A bold burst of mixed wild berries — blackcurrant, blueberry, and raspberry — pressed fresh and lightly carbonated for a zingy, refreshing hit.</div>
+    <div class="desc-nutrients">
+      <div class="desc-nut"><div class="desc-nut-val" id="dp-cal">45</div><div class="desc-nut-lbl">Calories</div></div>
+      <div class="desc-nut"><div class="desc-nut-val" id="dp-sug">8g</div><div class="desc-nut-lbl">Natural Sugar</div></div>
+      <div class="desc-nut"><div class="desc-nut-val" id="dp-vit">C+B6</div><div class="desc-nut-lbl">Vitamins</div></div>
+      <div class="desc-nut"><div class="desc-nut-val" id="dp-ml">330</div><div class="desc-nut-lbl">Millilitres</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="scroll-body">
+
+  <!-- L0 HERO -->
+  <div class="layer left" id="l0">
+    <div class="txt-block" id="t0">
+      <div class="eyebrow" id="ey0">New Drop</div>
+      <h1>Real<br/>Fruit.<br/><em id="h1-em">Real Taste.</em></h1>
+      <p class="body-text">Four bold flavours. One iconic can.<br/>100% natural fruit juice, lightly sparkling.</p>
+    </div>
+  </div>
+
+  <!-- L1 -->
+  <div class="layer right" id="l1">
+    <div class="txt-block" id="t1">
+      <div class="eyebrow">The Can</div>
+      <h2>Crafted<br/>for <em id="h2-em1">bold</em><br/>flavour.</h2>
+      <p class="body-text">Every curve shaped to keep your drink icy cold. Cold-formed aluminium with a fruit-forward label that pops.</p>
+      <div class="pill-row">
+        <span class="pill accent" id="pill1">No Added Sugar</span>
+        <span class="pill">100% Recyclable</span>
+        <span class="pill">BPA Free</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- L2 -->
+  <div class="layer center" id="l2">
+    <div class="txt-block center-txt" id="t2">
+      <div class="eyebrow">360° View</div>
+      <h2>Every angle<br/><em id="h2-em2">tells a story.</em></h2>
+      <p class="body-text">From the vibrant label to the precision pull-tab, every detail is packed with personality.</p>
+    </div>
+  </div>
+
+  <!-- L3 EXPLOSION -->
+  <div class="layer center" id="l3">
+    <div class="txt-block center-txt" id="t3">
+      <div class="eyebrow">Inside Out</div>
+      <h2>Built for<br/><em id="h2-em3">juice.</em></h2>
+      <p class="body-text">Five precision-engineered components. One perfect can. Sealed fresh at source.</p>
+    </div>
+  </div>
+
+  <!-- L4 -->
+  <div class="layer left" id="l4">
+    <div class="txt-block" id="t4">
+      <div class="eyebrow">Nutrition</div>
+      <h2>What's<br/><em id="h2-em4">inside</em><br/>counts.</h2>
+      <p class="body-text">No artificial sweeteners. No preservatives. Just pressed fruit juice with a natural sparkle.</p>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-n" id="s1">0</div><div class="stat-l">Artificial</div></div>
+        <div class="stat"><div class="stat-n" id="s2">45</div><div class="stat-l">Calories</div></div>
+        <div class="stat"><div class="stat-n" id="s3">8g</div><div class="stat-l">Nat. Sugar</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- L5 -->
+  <div class="layer right" id="l5">
+    <div class="txt-block" id="t5">
+      <div class="eyebrow">Sustainability</div>
+      <h2>Good juice.<br/><em id="h2-em5">Good planet.</em></h2>
+      <p class="body-text">Every Guizy can is infinitely recyclable. Our orchards run on solar. Carbon neutral by 2026.</p>
+      <div class="pill-row">
+        <span class="pill">Carbon Neutral</span>
+        <span class="pill">Solar Powered</span>
+        <span class="pill">Ocean Cleanup Partner</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- L6 CTA -->
+  <div class="layer center" id="l6">
+    <div class="txt-block center-txt" id="t6">
+      <div class="eyebrow" style="justify-content:center;">Get Yours</div>
+      <h1>Taste the<br/><em id="h1-em2">real thing.</em></h1>
+      <p class="body-text">Free delivery on your first case.<br/>Mix all four flavours and save 20%.</p>
+      <div>
+        <button class="cta-primary" id="cta-main">Order Now →</button>
+        <button class="cta-secondary">See All Flavours</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  FLAVOR DATA
+// ═══════════════════════════════════════
+const FLAVORS = [
+  {
+    name:'Berry',
+    tagline:'Wild Forest Blend',
+    desc:'A bold burst of mixed wild berries — blackcurrant, blueberry, and raspberry — pressed fresh and lightly carbonated for a zingy hit.',
+    cal:'45', sug:'8g', vit:'C+B6',
+    // Can metal — deep berry purple tint on silver
+    canColor:  0xc8a8e0,  // soft berry-tinted silver
+    canDark:   0xa07ab8,
+    // Label colors
+    labelTop:  '#7b1fa2',  // deep purple
+    labelBot:  '#ce93d8',  // soft lilac
+    fruitColor:'#6a0dad',  // berry purple
+    fruitHigh: '#e040fb',  // bright magenta
+    fruitDark: '#4a0080',
+    dotColor:  '#ba68c8',
+    splashColors:['#e040fb','#ab47bc','#7b1fa2','#f8bbd9','#ffffff'],
+    glowColor:'rgba(171,71,188,0.3)',
+    progColor:'#ab47bc',
+    cssAccent:'#ce93d8',
+  },
+  {
+    name:'Strawberry',
+    tagline:'Sun-Kissed Summer',
+    desc:'Sweet, sun-ripened strawberries cold-pressed to perfection. Light, bright, and impossibly juicy — sunshine in a can.',
+    cal:'50', sug:'10g', vit:'C+E',
+    canColor:  0xf4a0a8,  // rosy strawberry silver
+    canDark:   0xe06070,
+    labelTop:  '#c62828',  // deep strawberry red
+    labelBot:  '#ff8a80',  // coral pink
+    fruitColor:'#e53935',
+    fruitHigh: '#ff6d00',
+    fruitDark: '#8b0000',
+    dotColor:  '#ef9a9a',
+    splashColors:['#ff1744','#ff6d00','#e53935','#ff8a80','#ffffff'],
+    glowColor:'rgba(229,57,53,0.3)',
+    progColor:'#ef5350',
+    cssAccent:'#ff8a80',
+  },
+  {
+    name:'Apple',
+    tagline:'Crisp Green Orchard',
+    desc:'Freshly harvested green apples, cold-pressed within hours of picking. Crisp, clean, and refreshingly tart with zero compromise.',
+    cal:'38', sug:'7g', vit:'C+K',
+    canColor:  0xa8d8a0,  // fresh green-tinted silver
+    canDark:   0x6aaa60,
+    labelTop:  '#2e7d32',  // deep apple green
+    labelBot:  '#a5d6a7',  // light mint
+    fruitColor:'#43a047',
+    fruitHigh: '#76ff03',
+    fruitDark: '#1b5e20',
+    dotColor:  '#81c784',
+    splashColors:['#76ff03','#43a047','#2e7d32','#b9f6ca','#ffffff'],
+    glowColor:'rgba(67,160,71,0.3)',
+    progColor:'#66bb6a',
+    cssAccent:'#a5d6a7',
+  },
+  {
+    name:'Grape',
+    tagline:'Deep Vineyard Press',
+    desc:'Dark Concord grapes, slow-pressed to release every drop of rich, velvety juice. Deep, complex, and utterly satisfying.',
+    cal:'55', sug:'12g', vit:'A+C',
+    canColor:  0xb09acc,  // grape-tinted silver
+    canDark:   0x7e57a0,
+    labelTop:  '#4a148c',  // deep grape
+    labelBot:  '#9575cd',  // medium purple
+    fruitColor:'#6a1b9a',
+    fruitHigh: '#d500f9',
+    fruitDark: '#2e0051',
+    dotColor:  '#ce93d8',
+    splashColors:['#d500f9','#6a1b9a','#9c27b0','#e1bee7','#ffffff'],
+    glowColor:'rgba(106,27,154,0.3)',
+    progColor:'#9c27b0',
+    cssAccent:'#ce93d8',
+  }
+];
+
+let currentFlavor = 0;
+let splashRaf = null;
+
+// ═══════════════════════════════════════
+//  RENDERER
+// ═══════════════════════════════════════
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.01,100);
+camera.position.set(0,0,5.5);
+
+// ── LIGHTS ──
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+keyLight.position.set(3,4,3);
+keyLight.castShadow=true;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xfff5ee, 0.8);
+fillLight.position.set(-3,1,2);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffffff, 1.0);
+rimLight.position.set(0,-3,-3);
+scene.add(rimLight);
+
+// Top light for the bright lid
+const topLight = new THREE.DirectionalLight(0xffffff, 0.6);
+topLight.position.set(0,5,0);
+scene.add(topLight);
+
+const accentLight = new THREE.PointLight(FLAVORS[0].canColor, 2.0, 10);
+accentLight.position.set(-2,2,1);
+scene.add(accentLight);
+
+// ── LABEL TEXTURE ──
+// Fruit drawing helpers
+function drawBerry(ctx, x, y, r, f){
+  // Berry cluster: 3 circles
+  const cols = [f.fruitColor, f.fruitHigh, f.fruitDark];
+  const offsets = [{dx:-r*0.5,dy:r*0.4},{dx:r*0.5,dy:r*0.4},{dx:0,dy:-r*0.1}];
+  offsets.forEach((o,i)=>{
+    ctx.beginPath();
+    ctx.arc(x+o.dx, y+o.dy, r*0.6, 0, Math.PI*2);
+    const g=ctx.createRadialGradient(x+o.dx-r*0.15,y+o.dy-r*0.15,r*0.05,x+o.dx,y+o.dy,r*0.6);
+    g.addColorStop(0,'#ffffff88'); g.addColorStop(1,cols[i]);
+    ctx.fillStyle=g; ctx.fill();
+    // shine
+    ctx.beginPath(); ctx.arc(x+o.dx-r*0.18,y+o.dy-r*0.18,r*0.12,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fill();
+  });
+  // stem
+  ctx.strokeStyle=f.fruitDark; ctx.lineWidth=r*0.12; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x,y-r*0.1); ctx.quadraticCurveTo(x+r*0.2,y-r*0.7,x,y-r*0.9); ctx.stroke();
+}
+
+function drawStrawberry(ctx, x, y, r, f){
+  // Heart-shaped berry body
+  ctx.save();
+  ctx.translate(x,y);
+  const bG=ctx.createRadialGradient(-r*0.2,-r*0.1,r*0.1,0,0,r);
+  bG.addColorStop(0,f.fruitHigh); bG.addColorStop(1,f.fruitDark);
+  ctx.fillStyle=bG;
+  ctx.beginPath();
+  ctx.moveTo(0,r*0.9);
+  ctx.bezierCurveTo(r*1.0,-r*0.1, r*1.0,-r*0.8, 0,-r*0.5);
+  ctx.bezierCurveTo(-r*1.0,-r*0.8, -r*1.0,-r*0.1, 0,r*0.9);
+  ctx.fill();
+  // seeds — tiny dots
+  ctx.fillStyle='rgba(255,255,255,0.6)';
+  for(let i=0;i<6;i++){
+    const sx=(Math.random()-0.5)*r*1.2, sy=(Math.random()-0.3)*r*1.0;
+    ctx.beginPath(); ctx.ellipse(sx,sy,r*0.04,r*0.07,0,0,Math.PI*2); ctx.fill();
+  }
+  // shine
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.beginPath(); ctx.ellipse(-r*0.3,-r*0.2,r*0.18,r*0.3,-0.4,0,Math.PI*2); ctx.fill();
+  // leaves
+  ctx.fillStyle='#2e7d32';
+  ctx.beginPath(); ctx.moveTo(0,-r*0.5);
+  ctx.bezierCurveTo(-r*0.5,-r*1.1,-r*0.6,-r*0.4,0,-r*0.5); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,-r*0.5);
+  ctx.bezierCurveTo(r*0.5,-r*1.1,r*0.6,-r*0.4,0,-r*0.5); ctx.fill();
+  ctx.restore();
+}
+
+function drawAppleSlice(ctx, x, y, r, f){
+  // Full circle slice like citrus
+  ctx.save(); ctx.translate(x,y);
+  // Rind
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.fillStyle=f.fruitDark; ctx.fill();
+  // Flesh
+  ctx.beginPath(); ctx.arc(0,0,r*0.88,0,Math.PI*2);
+  const flG=ctx.createRadialGradient(0,0,r*0.1,0,0,r*0.88);
+  flG.addColorStop(0,'#f1f8e9'); flG.addColorStop(0.6,f.fruitHigh); flG.addColorStop(1,f.fruitColor);
+  ctx.fillStyle=flG; ctx.fill();
+  // Segments
+  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=r*0.06;
+  for(let i=0;i<8;i++){
+    const a=i*Math.PI/4;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*r*0.85, Math.sin(a)*r*0.85); ctx.stroke();
+  }
+  // Center
+  ctx.beginPath(); ctx.arc(0,0,r*0.12,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawGrapeCluster(ctx, x, y, r, f){
+  // Triangle cluster of grapes
+  const positions=[
+    {dx:0,dy:-r},{dx:-r*0.6,dy:-r*0.2},{dx:r*0.6,dy:-r*0.2},
+    {dx:-r*0.3,dy:r*0.5},{dx:r*0.3,dy:r*0.5},{dx:0,dy:r*1.0}
+  ];
+  positions.forEach(o=>{
+    ctx.beginPath(); ctx.arc(x+o.dx,y+o.dy,r*0.45,0,Math.PI*2);
+    const g=ctx.createRadialGradient(x+o.dx-r*0.1,y+o.dy-r*0.1,r*0.02,x+o.dx,y+o.dy,r*0.45);
+    g.addColorStop(0,'#e1bee7'); g.addColorStop(1,f.fruitColor);
+    ctx.fillStyle=g; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+o.dx-r*0.12,y+o.dy-r*0.12,r*0.1,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fill();
+  });
+  // Stem
+  ctx.strokeStyle=f.fruitDark; ctx.lineWidth=r*0.1; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x,y-r*0.9); ctx.quadraticCurveTo(x+r*0.3,y-r*1.4,x+r*0.1,y-r*1.6); ctx.stroke();
+  // Leaf
+  ctx.fillStyle='#388e3c';
+  ctx.beginPath(); ctx.moveTo(x+r*0.1,y-r*1.6);
+  ctx.bezierCurveTo(x+r*0.8,y-r*2.0, x+r*0.9,y-r*1.2, x+r*0.1,y-r*1.6); ctx.fill();
+}
+
+// Fruit positions scattered on can label
+const FRUIT_POSITIONS = [
+  // x(0-1), y(0-1), scale, rotation
+  {x:0.12,y:0.18,s:0.9,a:0.3},
+  {x:0.82,y:0.15,s:0.75,a:-0.5},
+  {x:0.55,y:0.08,s:0.65,a:0.8},
+  {x:0.25,y:0.55,s:0.85,a:-0.3},
+  {x:0.75,y:0.50,s:0.80,a:0.6},
+  {x:0.10,y:0.80,s:0.70,a:-0.8},
+  {x:0.65,y:0.82,s:0.90,a:0.2},
+  {x:0.42,y:0.72,s:0.60,a:-0.4},
+  {x:0.88,y:0.75,s:0.65,a:1.0},
+  {x:0.38,y:0.30,s:0.55,a:0.5},
+];
+
+function makeLabel(flavor){
+  const f = FLAVORS[flavor];
+  const tc=document.createElement('canvas');
+  tc.width=1024; tc.height=512;
+  const ctx=tc.getContext('2d');
+
+  // ── WHITE/LIGHT BASE — like the reference can ──
+  const baseGrad = ctx.createLinearGradient(0,0,1024,512);
+  baseGrad.addColorStop(0,'#f5f5f5');
+  baseGrad.addColorStop(0.4,'#ffffff');
+  baseGrad.addColorStop(0.7,'#f0f0f0');
+  baseGrad.addColorStop(1,'#e8e8e8');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0,0,1024,512);
+
+  // Subtle metallic sheen strip
+  const sheen = ctx.createLinearGradient(200,0,320,0);
+  sheen.addColorStop(0,'rgba(255,255,255,0)');
+  sheen.addColorStop(0.5,'rgba(255,255,255,0.35)');
+  sheen.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=sheen; ctx.fillRect(0,0,1024,512);
+
+  // ── COLOR BANDS top and bottom (like reference) ──
+  const topBand = ctx.createLinearGradient(0,0,0,90);
+  topBand.addColorStop(0, f.labelTop);
+  topBand.addColorStop(1, f.labelTop+'00');
+  ctx.fillStyle=topBand; ctx.fillRect(0,0,1024,90);
+
+  const botBand = ctx.createLinearGradient(0,430,0,512);
+  botBand.addColorStop(0,f.labelBot+'00');
+  botBand.addColorStop(1,f.labelBot);
+  ctx.fillStyle=botBand; ctx.fillRect(0,430,1024,82);
+
+  // ── SCATTERED FRUIT ILLUSTRATIONS ──
+  const drawFruit = [drawBerry, drawStrawberry, drawAppleSlice, drawGrapeCluster][flavor];
+  const baseR = 48;
+  FRUIT_POSITIONS.forEach(pos=>{
+    ctx.save();
+    const fx = pos.x * 1024;
+    const fy = pos.y * 512;
+    ctx.translate(fx, fy);
+    ctx.rotate(pos.a);
+    drawFruit(ctx, 0, 0, baseR * pos.s, f);
+    ctx.restore();
+  });
+
+  // ── GUIZY BRAND NAME ──
+  ctx.save();
+  ctx.font = 'bold 88px "Syne",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Dark colored text (like reference "Hello Summer")
+  ctx.fillStyle = f.labelTop;
+  ctx.globalAlpha = 0.92;
+  ctx.fillText('GUIZY', 512, 168);
+  ctx.restore();
+
+  // ── FLAVOR NAME ──
+  ctx.save();
+  ctx.font = 'bold 52px "Syne",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = f.fruitColor;
+  ctx.fillText(f.name.toUpperCase(), 512, 248);
+  ctx.restore();
+
+  // ── THIN ACCENT LINE ──
+  ctx.save();
+  ctx.fillStyle = f.labelTop;
+  ctx.globalAlpha = 0.6;
+  ctx.fillRect(180, 280, 664, 3);
+  ctx.restore();
+
+  // ── TAGLINE ──
+  ctx.save();
+  ctx.font = '300 24px "DM Sans",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = f.fruitDark;
+  ctx.globalAlpha = 0.7;
+  ctx.fillText(f.tagline.toUpperCase(), 512, 315);
+  ctx.restore();
+
+  // ── VOLUME ──
+  ctx.save();
+  ctx.font = '300 18px "DM Sans",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(40,40,40,0.4)';
+  ctx.fillText('330ml · 100% Natural · No Added Sugar', 512, 380);
+  ctx.restore();
+
+  return new THREE.CanvasTexture(tc);
+}
+
+// ── BUILD CAN ──
+let labelMesh;
+
+function buildCan(){
+  const g = new THREE.Group();
+
+  const mat=(rough,metal,col)=>new THREE.MeshStandardMaterial({
+    color:col,metalness:metal,roughness:rough,
+  });
+
+  const f = FLAVORS[currentFlavor];
+  // Bright silver aluminium body — white/silver like reference
+  const alum    = mat(0.06, 0.88, 0xdde8f0);   // bright silver-white
+  const alumTop = mat(0.05, 0.92, 0xe8f0f8);   // slightly lighter top
+  const almDark = mat(0.10, 0.85, 0xc0ccd8);   // darker base
+  const chrome  = mat(0.03, 0.97, 0xeef4ff);   // pull-tab chrome
+
+  // Body
+  const bodyGeo=new THREE.CylinderGeometry(0.54,0.54,1.85,80,1,true);
+  const lm=new THREE.MeshStandardMaterial({
+    map:makeLabel(currentFlavor),metalness:0.08,roughness:0.42,
+  });
+  labelMesh=new THREE.Mesh(bodyGeo,lm);
+  g.add(labelMesh);
+
+  // Shoulder
+  const shoulderGeo=new THREE.CylinderGeometry(0.42,0.54,0.18,80);
+  const shoulder=new THREE.Mesh(shoulderGeo,alumTop.clone());
+  shoulder.position.y=1.015;
+  g.add(shoulder);
+
+  // Neck
+  const neckGeo=new THREE.CylinderGeometry(0.38,0.42,0.08,80);
+  const neck=new THREE.Mesh(neckGeo,alumTop.clone());
+  neck.position.y=1.155;
+  g.add(neck);
+
+  // Lid
+  const lidGeo=new THREE.CylinderGeometry(0.38,0.38,0.025,80);
+  const lid=new THREE.Mesh(lidGeo,chrome.clone());
+  lid.position.y=1.20;
+  g.add(lid);
+
+  // Lid disc
+  const topDiscGeo=new THREE.CircleGeometry(0.34,80);
+  const topDisc=new THREE.Mesh(topDiscGeo,chrome.clone());
+  topDisc.rotation.x=-Math.PI/2;
+  topDisc.position.y=1.215;
+  g.add(topDisc);
+
+  // Pull tab ring
+  const tabRingGeo=new THREE.TorusGeometry(0.07,0.015,8,24);
+  const tabRing=new THREE.Mesh(tabRingGeo,chrome.clone());
+  tabRing.position.set(0.1,1.24,0);
+  tabRing.rotation.x=Math.PI/2;
+  g.add(tabRing);
+
+  // Pull tab bar
+  const tabBarGeo=new THREE.BoxGeometry(0.16,0.015,0.05);
+  const tabBar=new THREE.Mesh(tabBarGeo,chrome.clone());
+  tabBar.position.set(0.02,1.24,0);
+  g.add(tabBar);
+
+  // Bottom taper
+  const botGeo=new THREE.CylinderGeometry(0.54,0.50,0.12,80);
+  const bot=new THREE.Mesh(botGeo,alum.clone());
+  bot.position.y=-0.98;
+  g.add(bot);
+
+  // Base cap
+  const baseCap=new THREE.CylinderGeometry(0.50,0.50,0.03,80);
+  const base=new THREE.Mesh(baseCap,almDark.clone());
+  base.position.y=-1.055;
+  g.add(base);
+
+  // Base disc
+  const baseDiscGeo=new THREE.CircleGeometry(0.46,80);
+  const baseDisc=new THREE.Mesh(baseDiscGeo,almDark.clone());
+  baseDisc.rotation.x=Math.PI/2;
+  baseDisc.position.y=-1.072;
+  g.add(baseDisc);
+
+  // Ridges
+  for(let i=0;i<2;i++){
+    const ridgeGeo=new THREE.TorusGeometry(0.545,0.012,8,80);
+    const ridge=new THREE.Mesh(ridgeGeo,alum.clone());
+    ridge.rotation.x=Math.PI/2;
+    ridge.position.y=0.55-(i*0.18);
+    g.add(ridge);
+  }
+
+  return g;
+}
+
+let can=buildCan();
+scene.add(can);
+
+// Ground shadow
+const shadowGeo=new THREE.PlaneGeometry(2,2);
+const shadowMat=new THREE.MeshBasicMaterial({
+  color:0x000000,transparent:true,opacity:0,depthWrite:false
+});
+const shadowPlane=new THREE.Mesh(shadowGeo,shadowMat);
+shadowPlane.rotation.x=-Math.PI/2;
+shadowPlane.position.y=-1.4;
+scene.add(shadowPlane);
+
+// EXPLOSION PARTS
+let parts=[];
+function buildParts(){
+  parts=[];
+  can.children.forEach((child)=>{
+    parts.push({
+      mesh:child,
+      homePos:child.position.clone(),
+      explDir:new THREE.Vector3(
+        (Math.random()-.5)*1.2,
+        child.position.y*1.8,
+        (Math.random()-.5)*0.8
+      )
+    });
+  });
+}
+buildParts();
+
+let explodeFactor=0;
+
+// ═══════════════════════════════════════
+//  SPLASH CANVAS (2D juice particles)
+// ═══════════════════════════════════════
+const sc=document.getElementById('splash-canvas');
+const sctx=sc.getContext('2d');
+
+function resizeSplash(){
+  sc.width=innerWidth;
+  sc.height=innerHeight;
+}
+resizeSplash();
+window.addEventListener('resize',resizeSplash);
+
+const particles=[];
+
+class JuiceParticle{
+  constructor(x,y,color){
+    this.x=x; this.y=y;
+    // Burst upward and outward from can top
+    const angle = -Math.PI/2 + (Math.random()-0.5)*Math.PI*1.6;
+    const speed = 8 + Math.random()*22;
+    this.vx = Math.cos(angle)*speed;
+    this.vy = Math.sin(angle)*speed;
+    this.r = 5 + Math.random()*10;
+    this.color = color;
+    this.gravity = 0.55;
+    this.life = 1;
+    this.decay = 0.008 + Math.random()*0.016;
+    this.trail = Math.random() > 0.6; // some particles leave streaks
+    this.px = x; this.py = y; // previous pos for trail
+  }
+  update(){
+    this.px = this.x; this.py = this.y;
+    this.vx *= 0.97;
+    this.vy += this.gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+    this.r *= 0.992;
+  }
+  draw(ctx){
+    const a = Math.max(0, this.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = this.color;
+    if(this.trail){
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.r * 0.7;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(this.px, this.py);
+      ctx.lineTo(this.x, this.y);
+      ctx.stroke();
+    } else {
+      // Blob / droplet shape
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y, this.r, this.r*0.75, Math.atan2(this.vy,this.vx), 0, Math.PI*2);
+      ctx.fill();
+      // Specular shine
+      ctx.globalAlpha = a * 0.5;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(this.x - this.r*0.25, this.y - this.r*0.25, this.r*0.22, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function fireSplash(x, y){
+  // Cancel any in-flight animation and clear
+  if(splashRaf){ cancelAnimationFrame(splashRaf); splashRaf=null; }
+  sctx.clearRect(0,0,sc.width,sc.height);
+  particles.length = 0;
+
+  const f = FLAVORS[currentFlavor];
+  const colors = f.splashColors;
+
+  // Big burst: 160 particles
+  for(let i=0;i<160;i++){
+    particles.push(new JuiceParticle(
+      x + (Math.random()-0.5)*20,
+      y + (Math.random()-0.5)*10,
+      colors[Math.floor(Math.random()*colors.length)]
+    ));
+  }
+
+  function animSplash(){
+    sctx.clearRect(0,0,sc.width,sc.height);
+    let alive = false;
+    for(let i=0;i<particles.length;i++){
+      const p = particles[i];
+      if(p.life > 0){
+        alive = true;
+        p.update();
+        p.draw(sctx);
+      }
+    }
+    if(alive){
+      splashRaf = requestAnimationFrame(animSplash);
+    } else {
+      sctx.clearRect(0,0,sc.width,sc.height);
+      particles.length = 0;
+      splashRaf = null;
+    }
+  }
+  animSplash();
+}
+
+// ═══════════════════════════════════════
+//  FLAVOR SWITCHING
+// ═══════════════════════════════════════
+function selectFlavor(idx, doSplash){
+  const changed = (idx !== currentFlavor);
+  if(!changed && !doSplash) return;
+  currentFlavor=idx;
+  const f=FLAVORS[idx];
+
+  // Splash from can top
+  if(doSplash){
+    can.updateMatrixWorld();
+    const canTop = new THREE.Vector3(0,1.3,0);
+    canTop.applyMatrix4(can.matrixWorld);
+    canTop.project(camera);
+    const sx = ( canTop.x*0.5+0.5)*innerWidth;
+    const sy = (-canTop.y*0.5+0.5)*innerHeight;
+    fireSplash(sx, sy);
+  }
+
+  // Button states
+  document.querySelectorAll('.f-btn').forEach((b,i)=>{
+    b.classList.toggle('active',i===idx);
+  });
+
+  // Update accent light color
+  accentLight.color.setHex(f.canColor);
+
+  // Rebuild can with new flavor colors/label
+  scene.remove(can);
+  can=buildCan();
+  scene.add(can);
+  buildParts();
+
+  // Update bg glow
+  document.getElementById('bg-glow').style.background=
+    `radial-gradient(ellipse 60% 60% at 60% 50%, ${f.glowColor}, transparent)`;
+
+  // Update progress bar
+  document.getElementById('prog').style.background=f.progColor;
+
+  // Update text accents
+  const ems=['h1-em','h1-em2','h2-em1','h2-em2','h2-em3','h2-em4','h2-em5'];
+  ems.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.color=f.cssAccent;
+  });
+  document.querySelectorAll('.eyebrow').forEach(el=>el.style.color=f.cssAccent);
+  document.querySelectorAll('.stat-n').forEach(el=>el.style.color=f.cssAccent);
+  document.querySelectorAll('.pill.accent').forEach(el=>{
+    el.style.background=f.cssAccent+'22';
+    el.style.borderColor=f.cssAccent+'44';
+    el.style.color=f.cssAccent;
+  });
+  document.getElementById('cta-main').style.background=f.cssAccent;
+
+  // Update stats text
+  document.getElementById('s2').textContent=f.cal;
+  document.getElementById('s3').textContent=f.sug;
+
+  // Update desc panel
+  document.getElementById('dp-name').textContent=f.name;
+  document.getElementById('dp-name').style.color=f.cssAccent;
+  document.getElementById('dp-tag').textContent=f.tagline;
+  document.getElementById('dp-text').textContent=f.desc;
+  document.getElementById('dp-cal').textContent=f.cal;
+  document.getElementById('dp-cal').style.color=f.cssAccent;
+  document.getElementById('dp-sug').textContent=f.sug;
+  document.getElementById('dp-sug').style.color=f.cssAccent;
+  document.getElementById('dp-vit').textContent=f.vit;
+  document.getElementById('dp-vit').style.color=f.cssAccent;
+
+  // Animate can swap
+  gsap.fromTo(can.scale,
+    {x:0.01,y:0.01,z:0.01},
+    {x:1,y:1,z:1,duration:.7,ease:'back.out(1.7)'}
+  );
+  gsap.fromTo(can.rotation,
+    {y:Math.PI*1.5},
+    {y:live.canRY,duration:.8,ease:'power3.out'}
+  );
+}
+
+// Click on canvas fires splash from can's pull-tab top
+document.getElementById('canvas-wrap').style.pointerEvents='all';
+document.getElementById('canvas-wrap').style.cursor='none';
+document.getElementById('canvas-wrap').addEventListener('click',(e)=>{
+  // Project can top-center (world y=1.3) to screen space
+  const canTop = new THREE.Vector3(0, 1.3, 0);
+  // Apply can's current world transform
+  can.updateMatrixWorld();
+  canTop.applyMatrix4(can.matrixWorld);
+  canTop.project(camera);
+  const sx = ( canTop.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-canTop.y * 0.5 + 0.5) * innerHeight;
+  fireSplash(sx, sy);
+});
+
+// Flavor buttons
+document.querySelectorAll('.f-btn').forEach((btn,i)=>{
+  btn.addEventListener('click',(e)=>{
+    selectFlavor(i, true);
+    // Scroll to top for fresh experience
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+});
+
+// ═══════════════════════════════════════
+//  CAMERA / SCROLL STATE
+// ═══════════════════════════════════════
+const camState={theta:0,phi:0.15,radius:5.5};
+
+const sections=[
+  {camR:5.5, camTheta:0,       camPhi:0.1,  canRY:0.3,  canRX:0,    canRZ:0,    canPY:0,    explode:0, shadowO:0.2},
+  {camR:5.2, camTheta:0.4,     camPhi:-0.2, canRY:0,    canRX:0,    canRZ:-1.55,canPY:0,    explode:0, shadowO:0.12},
+  {camR:4.2, camTheta:Math.PI*2,camPhi:0.3, canRY:0,    canRX:0.05, canRZ:0,    canPY:0.1,  explode:0, shadowO:0.15},
+  {camR:6.5, camTheta:0.3,     camPhi:0.2,  canRY:0.2,  canRX:0,    canRZ:0,    canPY:0,    explode:1, shadowO:0},
+  {camR:5.0, camTheta:-0.5,    camPhi:-0.35,canRY:-0.4, canRX:0.15, canRZ:0.1,  canPY:0.4,  explode:0, shadowO:0.08},
+  {camR:5.4, camTheta:0.1,     camPhi:0.05, canRY:0.1,  canRX:0,    canRZ:0,    canPY:-0.1, explode:0, shadowO:0.25},
+  {camR:4.8, camTheta:0,       camPhi:0.08, canRY:0,    canRX:0,    canRZ:0,    canPY:0,    explode:0, shadowO:0.2},
+];
+
+const live={
+  camR:5.5,camTheta:0,camPhi:0.1,
+  canRY:0.3,canRX:0,canRZ:0,canPY:0,
+  explode:0,shadowO:0.2,
+  mouseX:0,mouseY:0,
+};
+const tgt=Object.assign({},live);
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function easeInOut(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
+
+// ── SCROLL ──
+let sp=0;
+const dots=document.querySelectorAll('.si-dot');
+
+function onScroll(){
+  const maxS=document.body.scrollHeight-innerHeight;
+  sp=scrollY/maxS;
+  document.getElementById('prog').style.width=(sp*100)+'%';
+
+  if(scrollY>60){
+    document.getElementById('scroll-ind').style.opacity='0.3';
+    document.getElementById('nav').classList.add('scrolled');
+  } else {
+    document.getElementById('scroll-ind').style.opacity='0.5';
+    document.getElementById('nav').classList.remove('scrolled');
+  }
+
+  const total=sections.length-1;
+  const raw=sp*total;
+  const idx=Math.min(Math.floor(raw),total-1);
+  const t=easeInOut(raw-idx);
+  const A=sections[idx],B=sections[Math.min(idx+1,total)];
+
+  tgt.camR    =lerp(A.camR,   B.camR,   t);
+  tgt.camTheta=lerp(A.camTheta,B.camTheta,t);
+  tgt.camPhi  =lerp(A.camPhi, B.camPhi, t);
+  tgt.canRY   =lerp(A.canRY,  B.canRY,  t);
+  tgt.canRX   =lerp(A.canRX,  B.canRX,  t);
+  tgt.canRZ   =lerp(A.canRZ,  B.canRZ,  t);
+  tgt.canPY   =lerp(A.canPY,  B.canPY,  t);
+  tgt.explode =lerp(A.explode, B.explode,t);
+  tgt.shadowO =lerp(A.shadowO, B.shadowO,t);
+
+  // Dot nav
+  const secIdx=Math.round(sp*6);
+  dots.forEach((d,i)=>d.classList.toggle('active',i===secIdx));
+
+  // Desc panel visibility
+  const descPanel=document.getElementById('desc-panel');
+  descPanel.classList.toggle('visible', sp>0.05 && sp<0.85);
+
+  animTexts(sp);
+}
+window.addEventListener('scroll',onScroll,{passive:true});
+
+// ── TEXT ANIMATIONS ──
+const txtIds=['t0','t1','t2','t3','t4','t5','t6'];
+const activeTexts=new Set();
+function animTexts(sp){
+  const total=txtIds.length;
+  const secSize=1/total;
+  txtIds.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const s=i*secSize, e=s+secSize;
+    const inSec=sp>=s-0.015&&sp<e+0.015;
+    if(inSec&&!activeTexts.has(id)){
+      activeTexts.add(id);
+      gsap.to(el,{opacity:1,y:0,duration:.8,ease:'power3.out',delay:.05});
+    } else if(!inSec&&activeTexts.has(id)){
+      activeTexts.delete(id);
+      gsap.to(el,{opacity:0,y:24,duration:.45,ease:'power2.in'});
+    }
+  });
+  const inExp=sp>=3/7-0.02&&sp<4/7+0.02;
+  document.getElementById('exp-labels').style.opacity=inExp?'1':'0';
+  document.getElementById('exp-labels').style.transition='opacity .5s';
+}
+
+// ── MOUSE ──
+window.addEventListener('mousemove',e=>{
+  tgt.mouseX=(e.clientX/innerWidth-.5)*.35;
+  tgt.mouseY=(e.clientY/innerHeight-.5)*.25;
+  document.getElementById('cursor').style.left=e.clientX+'px';
+  document.getElementById('cursor').style.top=e.clientY+'px';
+  document.getElementById('cursor-ring').style.left=e.clientX+'px';
+  document.getElementById('cursor-ring').style.top=e.clientY+'px';
+});
+
+// Cursor hover
+document.querySelectorAll('button,a,.f-btn').forEach(el=>{
+  el.addEventListener('mouseenter',()=>document.body.classList.add('hovering'));
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('hovering'));
+});
+
+// ── CLOCK ──
+const clock=new THREE.Clock();
+
+// ── RENDER LOOP ──
+function render(){
+  requestAnimationFrame(render);
+  const t=clock.getElapsedTime();
+  const lf=0.065;
+
+  live.camR    =lerp(live.camR,    tgt.camR,    lf);
+  live.camTheta=lerp(live.camTheta,tgt.camTheta,lf);
+  live.camPhi  =lerp(live.camPhi,  tgt.camPhi,  lf);
+  live.canRY   =lerp(live.canRY,   tgt.canRY,   lf);
+  live.canRX   =lerp(live.canRX,   tgt.canRX,   lf);
+  live.canRZ   =lerp(live.canRZ,   tgt.canRZ,   lf);
+  live.canPY   =lerp(live.canPY,   tgt.canPY,   lf);
+  live.explode =lerp(live.explode, tgt.explode, lf);
+  live.shadowO =lerp(live.shadowO, tgt.shadowO, lf);
+  live.mouseX  =lerp(live.mouseX,  tgt.mouseX,  0.08);
+  live.mouseY  =lerp(live.mouseY,  tgt.mouseY,  0.08);
+
+  const th=live.camTheta + live.mouseX*0.4;
+  const ph=live.camPhi   + live.mouseY*0.3;
+  camera.position.x=live.camR * Math.sin(th) * Math.cos(ph);
+  camera.position.y=live.camR * Math.sin(ph);
+  camera.position.z=live.camR * Math.cos(th) * Math.cos(ph);
+  camera.lookAt(0, live.canPY*0.3, 0);
+
+  const floatY=Math.sin(t*0.7)*0.04;
+  const floatR=Math.sin(t*0.5)*0.012;
+  can.rotation.x=live.canRX + live.mouseY*0.12 + floatR;
+  can.rotation.y=live.canRY + live.mouseX*0.15;
+  can.rotation.z=live.canRZ;
+  can.position.y=live.canPY + floatY;
+
+  parts.forEach(p=>{
+    if(!p.mesh.parent)return;
+    p.mesh.position.x=lerp(p.homePos.x, p.homePos.x+p.explDir.x, live.explode);
+    p.mesh.position.y=lerp(p.homePos.y, p.homePos.y+p.explDir.y, live.explode);
+    p.mesh.position.z=lerp(p.homePos.z, p.homePos.z+p.explDir.z, live.explode);
+  });
+
+  shadowPlane.material.opacity=live.shadowO*0.35;
+  shadowPlane.position.y=can.position.y - 1.5;
+  shadowPlane.scale.x=1.2-Math.abs(can.position.y)*0.1;
+  shadowPlane.scale.y=0.35-Math.abs(can.position.y)*0.02;
+
+  accentLight.intensity=2.5+Math.sin(t*1.2)*0.6;
+
+  renderer.render(scene,camera);
+}
+render();
+
+// ── RESIZE ──
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  sc.width=innerWidth;sc.height=innerHeight;
+});
+
+// ── INIT ──
+// Apply initial flavor styling
+const f0=FLAVORS[0];
+document.getElementById('bg-glow').style.background=
+  `radial-gradient(ellipse 60% 60% at 60% 50%, ${f0.glowColor}, transparent)`;
+document.getElementById('prog').style.background=f0.progColor;
+document.querySelectorAll('.eyebrow').forEach(el=>el.style.color=f0.cssAccent);
+document.querySelectorAll('.stat-n').forEach(el=>el.style.color=f0.cssAccent);
+document.querySelectorAll('em').forEach(el=>el.style.color=f0.cssAccent);
+document.getElementById('cta-main').style.background=f0.cssAccent;
+document.querySelectorAll('.pill.accent').forEach(el=>{
+  el.style.background=f0.cssAccent+'22';
+  el.style.borderColor=f0.cssAccent+'44';
+  el.style.color=f0.cssAccent;
+});
+document.getElementById('dp-name').style.color=f0.cssAccent;
+document.querySelectorAll('.desc-nut-val').forEach(el=>el.style.color=f0.cssAccent);
+
+setTimeout(()=>{
+  gsap.to(document.getElementById('t0'),{opacity:1,y:0,duration:1.1,ease:'power3.out'});
+  activeTexts.add('t0');
+},600);
+onScroll();
+</script>
+</body>
+</html>
